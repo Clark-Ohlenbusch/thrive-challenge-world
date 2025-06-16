@@ -22,19 +22,36 @@ const categories = [
   'Productivity'
 ];
 
+interface ChallengeWithOwner {
+  id: string;
+  title: string;
+  category: string;
+  description: string | null;
+  start_date: string;
+  end_date: string;
+  slug: string;
+  owner: { display_name: string; avatar_url: string | null } | null;
+  member_count: number;
+}
+
 export default function Explore() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
 
   const { data: challenges = [], isLoading } = useQuery({
     queryKey: ['public-challenges', searchTerm, selectedCategory],
-    queryFn: async () => {
+    queryFn: async (): Promise<ChallengeWithOwner[]> => {
       let query = supabase
         .from('challenges')
         .select(`
-          *,
-          owner:users!owner_id(display_name, avatar_url),
-          _count:memberships(count)
+          id,
+          title,
+          category,
+          description,
+          start_date,
+          end_date,
+          slug,
+          owner:users!owner_id(display_name, avatar_url)
         `)
         .eq('is_public', true)
         .order('created_at', { ascending: false });
@@ -47,9 +64,26 @@ export default function Explore() {
         query = query.eq('category', selectedCategory);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
+      const { data: challengeData, error: challengeError } = await query;
+      if (challengeError) throw challengeError;
+
+      // Get member counts for each challenge
+      const challengeIds = challengeData?.map(c => c.id) || [];
+      const { data: memberCounts, error: countError } = await supabase
+        .from('memberships')
+        .select('challenge_id, count(*)')
+        .in('challenge_id', challengeIds);
+
+      if (countError) throw countError;
+
+      // Combine the data
+      return challengeData?.map(challenge => {
+        const memberCount = memberCounts?.find(mc => mc.challenge_id === challenge.id)?.count || 0;
+        return {
+          ...challenge,
+          member_count: memberCount
+        };
+      }) || [];
     }
   });
 
@@ -130,7 +164,7 @@ export default function Explore() {
                     </div>
                     <div className="flex items-center text-sm text-muted-foreground">
                       <Users className="h-4 w-4 mr-2" />
-                      {challenge._count} members
+                      {challenge.member_count} members
                     </div>
                   </div>
 

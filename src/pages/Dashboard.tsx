@@ -9,31 +9,72 @@ import { Plus, Calendar, Users, Target } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+interface ChallengeWithMembership {
+  id: string;
+  title: string;
+  category: string;
+  start_date: string;
+  end_date: string;
+  is_public: boolean;
+  slug: string;
+  memberships: Array<{ streak: number; last_checkin: string | null }>;
+  member_count: number;
+}
+
+interface PendingInvite {
+  id: string;
+  challenges: { title: string; category: string } | null;
+  inviter: { display_name: string } | null;
+}
+
 export default function Dashboard() {
   const { data: challenges = [], isLoading } = useQuery({
     queryKey: ['my-challenges'],
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryFn: async (): Promise<ChallengeWithMembership[]> => {
+      // First get challenges with memberships
+      const { data: challengeData, error: challengeError } = await supabase
         .from('challenges')
         .select(`
-          *,
-          memberships!inner(streak, last_checkin),
-          _count:memberships(count)
+          id,
+          title,
+          category,
+          start_date,
+          end_date,
+          is_public,
+          slug,
+          memberships!inner(streak, last_checkin)
         `)
         .eq('memberships.user_id', 'current-user-id'); // TODO: Replace with actual auth
 
-      if (error) throw error;
-      return data;
+      if (challengeError) throw challengeError;
+
+      // Get member counts for each challenge
+      const challengeIds = challengeData?.map(c => c.id) || [];
+      const { data: memberCounts, error: countError } = await supabase
+        .from('memberships')
+        .select('challenge_id, count(*)')
+        .in('challenge_id', challengeIds);
+
+      if (countError) throw countError;
+
+      // Combine the data
+      return challengeData?.map(challenge => {
+        const memberCount = memberCounts?.find(mc => mc.challenge_id === challenge.id)?.count || 0;
+        return {
+          ...challenge,
+          member_count: memberCount
+        };
+      }) || [];
     }
   });
 
   const { data: invites = [] } = useQuery({
     queryKey: ['pending-invites'],
-    queryFn: async () => {
+    queryFn: async (): Promise<PendingInvite[]> => {
       const { data, error } = await supabase
         .from('invites')
         .select(`
-          *,
+          id,
           challenges(title, category),
           inviter:users!inviter_id(display_name)
         `)
@@ -41,7 +82,7 @@ export default function Dashboard() {
         .eq('accepted', false);
 
       if (error) throw error;
-      return data;
+      return data || [];
     }
   });
 
@@ -140,7 +181,7 @@ export default function Dashboard() {
                       </div>
                       <div className="flex items-center text-sm text-muted-foreground">
                         <Users className="h-4 w-4 mr-2" />
-                        {challenge._count} members
+                        {challenge.member_count} members
                       </div>
                       <div className="flex items-center justify-between">
                         <div>
