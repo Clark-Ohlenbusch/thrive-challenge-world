@@ -69,16 +69,23 @@ export default function Explore() {
 
       // Get member counts for each challenge
       const challengeIds = challengeData?.map(c => c.id) || [];
-      const { data: memberCounts, error: countError } = await supabase
-        .from('memberships')
-        .select('challenge_id, count(*)')
-        .in('challenge_id', challengeIds);
+      if (challengeIds.length === 0) return [];
 
-      if (countError) throw countError;
+      const memberCounts = await Promise.all(
+        challengeIds.map(async (challengeId) => {
+          const { count, error } = await supabase
+            .from('memberships')
+            .select('*', { count: 'exact', head: true })
+            .eq('challenge_id', challengeId);
+
+          if (error) throw error;
+          return { challenge_id: challengeId, count: count || 0 };
+        })
+      );
 
       // Combine the data
       return challengeData?.map(challenge => {
-        const memberCount = memberCounts?.find(mc => mc.challenge_id === challenge.id)?.count || 0;
+        const memberCount = memberCounts.find(mc => mc.challenge_id === challenge.id)?.count || 0;
         return {
           ...challenge,
           member_count: memberCount
