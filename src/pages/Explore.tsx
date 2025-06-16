@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { Search, Users, Calendar, Zap } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@clerk/clerk-react';
 
 const categories = [
   'All Categories',
@@ -37,6 +38,7 @@ interface ChallengeWithOwner {
 export default function Explore() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
+  const { user } = useUser();
 
   const { data: challenges = [], isLoading } = useQuery({
     queryKey: ['public-challenges', searchTerm, selectedCategory],

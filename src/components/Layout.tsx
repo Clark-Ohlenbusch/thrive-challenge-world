@@ -2,6 +2,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { UserButton, useAuth } from '@clerk/clerk-react';
 import { copy } from '@/lib/copy';
 import { Home, Compass, Plus, Settings, Crown } from 'lucide-react';
 
@@ -12,6 +13,7 @@ interface LayoutProps {
 
 export function Layout({ children, showNav = true }: LayoutProps) {
   const location = useLocation();
+  const { isSignedIn } = useAuth();
 
   const navItems = [
     { icon: Home, label: copy.nav.dashboard, path: '/dashboard' },
@@ -25,12 +27,12 @@ export function Layout({ children, showNav = true }: LayoutProps) {
       {showNav && (
         <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container flex h-16 items-center justify-between">
-            <Link to="/dashboard" className="font-bold text-xl">
+            <Link to={isSignedIn ? "/dashboard" : "/"} className="font-bold text-xl">
               Challenge Hub
             </Link>
             
             <nav className="hidden md:flex items-center space-x-6">
-              {navItems.map((item) => (
+              {isSignedIn && navItems.map((item) => (
                 <Link
                   key={item.path}
                   to={item.path}
@@ -41,17 +43,46 @@ export function Layout({ children, showNav = true }: LayoutProps) {
                   {item.label}
                 </Link>
               ))}
-              <Button asChild variant="outline" size="sm">
-                <Link to="/pro">
-                  <Crown className="h-4 w-4 mr-2" />
-                  {copy.nav.pro}
-                </Link>
-              </Button>
+              {isSignedIn ? (
+                <div className="flex items-center space-x-4">
+                  <Button asChild variant="outline" size="sm">
+                    <Link to="/pro">
+                      <Crown className="h-4 w-4 mr-2" />
+                      {copy.nav.pro}
+                    </Link>
+                  </Button>
+                  <UserButton 
+                    afterSignOutUrl="/"
+                    appearance={{
+                      elements: {
+                        avatarBox: "h-8 w-8"
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <Button asChild>
+                  <Link to="/signin">Sign In</Link>
+                </Button>
+              )}
             </nav>
 
             {/* Mobile Navigation */}
             <div className="md:hidden">
-              <Button variant="ghost" size="sm">Menu</Button>
+              {isSignedIn ? (
+                <UserButton 
+                  afterSignOutUrl="/"
+                  appearance={{
+                    elements: {
+                      avatarBox: "h-8 w-8"
+                    }
+                  }}
+                />
+              ) : (
+                <Button asChild size="sm">
+                  <Link to="/signin">Sign In</Link>
+                </Button>
+              )}
             </div>
           </div>
         </header>
@@ -62,7 +93,7 @@ export function Layout({ children, showNav = true }: LayoutProps) {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      {showNav && (
+      {showNav && isSignedIn && (
         <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-background">
           <div className="grid grid-cols-5 h-16">
             {navItems.map((item) => (

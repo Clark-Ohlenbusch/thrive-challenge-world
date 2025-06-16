@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Calendar, Users, Target } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useUser } from '@clerk/clerk-react';
 
 interface ChallengeWithMembership {
   id: string;
@@ -28,9 +29,13 @@ interface PendingInvite {
 }
 
 export default function Dashboard() {
+  const { user } = useUser();
+
   const { data: challenges = [], isLoading } = useQuery({
-    queryKey: ['my-challenges'],
+    queryKey: ['my-challenges', user?.id],
     queryFn: async (): Promise<ChallengeWithMembership[]> => {
+      if (!user?.id) return [];
+
       // First get challenges with memberships
       const { data: challengeData, error: challengeError } = await supabase
         .from('challenges')
@@ -44,7 +49,7 @@ export default function Dashboard() {
           slug,
           memberships!inner(streak, last_checkin)
         `)
-        .eq('memberships.user_id', 'current-user-id'); // TODO: Replace with actual auth
+        .eq('memberships.user_id', user.id);
 
       if (challengeError) throw challengeError;
 
@@ -72,12 +77,15 @@ export default function Dashboard() {
           member_count: memberCount
         };
       }) || [];
-    }
+    },
+    enabled: !!user?.id
   });
 
   const { data: invites = [] } = useQuery({
-    queryKey: ['pending-invites'],
+    queryKey: ['pending-invites', user?.primaryEmailAddress?.emailAddress],
     queryFn: async (): Promise<PendingInvite[]> => {
+      if (!user?.primaryEmailAddress?.emailAddress) return [];
+
       const { data, error } = await supabase
         .from('invites')
         .select(`
@@ -85,12 +93,13 @@ export default function Dashboard() {
           challenges(title, category),
           inviter:users!inviter_id(display_name)
         `)
-        .eq('email', 'user@example.com') // TODO: Replace with actual user email
+        .eq('email', user.primaryEmailAddress.emailAddress)
         .eq('accepted', false);
 
       if (error) throw error;
       return data || [];
-    }
+    },
+    enabled: !!user?.primaryEmailAddress?.emailAddress
   });
 
   if (isLoading) {
