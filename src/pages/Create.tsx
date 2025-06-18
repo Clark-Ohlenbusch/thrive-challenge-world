@@ -1,4 +1,3 @@
-
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,12 +14,14 @@ import { Calendar } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@clerk/clerk-react';
 
 const categories = ['Fitness', 'Reading', 'Wellness', 'Creativity', 'Learning', 'Productivity'];
 
 export default function Create() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useUser();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     title: '',
@@ -37,6 +38,8 @@ export default function Create() {
 
   const createChallenge = useMutation({
     mutationFn: async (data: typeof formData) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      
       const slug = generateSlug(data.title);
       
       const { data: challenge, error } = await supabase
@@ -52,12 +55,23 @@ export default function Create() {
           unit_label: data.unitLabel || null,
           goal_numeric: data.goalNumeric ? parseInt(data.goalNumeric) : null,
           is_public: data.isPublic,
-          owner_id: 'current-user-id' // TODO: Replace with actual auth
+          owner_id: user.id
         })
         .select()
         .single();
 
       if (error) throw error;
+
+      // Create owner membership
+      const { error: membershipError } = await supabase
+        .from('memberships')
+        .insert({
+          challenge_id: challenge.id,
+          user_id: user.id
+        });
+
+      if (membershipError) throw membershipError;
+
       return challenge;
     },
     onSuccess: (challenge) => {
@@ -68,6 +82,7 @@ export default function Create() {
       navigate(`/challenge/${challenge.slug}`);
     },
     onError: (error) => {
+      console.error('Create challenge error:', error);
       toast({
         title: "Error",
         description: "Failed to create challenge. Please try again.",

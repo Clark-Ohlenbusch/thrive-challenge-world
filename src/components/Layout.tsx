@@ -45,6 +45,12 @@ export function Layout({ children, showNav = true }: LayoutProps) {
               ))}
               {isSignedIn ? (
                 <div className="flex items-center space-x-4">
+                  <Button asChild size="sm">
+                    <Link to="/create">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Challenge
+                    </Link>
+                  </Button>
                   <Button asChild variant="outline" size="sm">
                     <Link to="/pro">
                       <Crown className="h-4 w-4 mr-2" />
@@ -61,9 +67,14 @@ export function Layout({ children, showNav = true }: LayoutProps) {
                   />
                 </div>
               ) : (
-                <Button asChild>
-                  <Link to="/signin">Sign In</Link>
-                </Button>
+                <>
+                  <Button variant="outline" asChild>
+                    <Link to="/signin">Sign In</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link to="/signup">Get Started</Link>
+                  </Button>
+                </>
               )}
             </nav>
 

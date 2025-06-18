@@ -3,24 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { copy } from '@/lib/copy';
 import { Link } from 'react-router-dom';
-import { useAuth, useSignIn } from '@clerk/clerk-react';
+import { useAuth } from '@clerk/clerk-react';
 import { Users, Target, Trophy } from 'lucide-react';
 
 export default function Landing() {
   const { isSignedIn } = useAuth();
-  const { signIn } = useSignIn();
-
-  const handleDemoLogin = async () => {
-    try {
-      await signIn?.create({
-        identifier: "demo@demo.dev",
-        password: "demo123"
-      });
-    } catch (error) {
-      // If demo user doesn't exist, redirect to signup
-      window.location.href = "/signup";
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800">
@@ -38,7 +25,7 @@ export default function Landing() {
                 <Link to="/signin">Sign In</Link>
               </Button>
               <Button asChild>
-                <Link to="/signup">Sign Up</Link>
+                <Link to="/signup">Get Started</Link>
               </Button>
             </>
           )}
@@ -69,8 +56,8 @@ export default function Landing() {
               <Button asChild size="lg" className="text-lg px-8">
                 <Link to="/signup">Get Started</Link>
               </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8" onClick={handleDemoLogin}>
-                Try Demo
+              <Button asChild variant="outline" size="lg" className="text-lg px-8">
+                <Link to="/demo">Try Demo</Link>
               </Button>
             </>
           )}

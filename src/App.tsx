@@ -13,6 +13,7 @@ import Create from "./pages/Create";
 import Challenge from "./pages/Challenge";
 import SignInPage from "./components/auth/SignInPage";
 import SignUpPage from "./components/auth/SignUpPage";
+import DemoPage from "./pages/DemoPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/" element={<Landing />} />
             <Route path="/signin" element={<SignInPage />} />
             <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/demo" element={<DemoPage />} />
             <Route path="/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
             <Route path="/explore" element={<RequireAuth><Explore /></RequireAuth>} />
             <Route path="/create" element={<RequireAuth><Create /></RequireAuth>} />
