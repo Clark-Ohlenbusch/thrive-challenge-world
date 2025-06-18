@@ -7,7 +7,7 @@ import { Layout } from '@/components/Layout';
 import { ChallengeHeader } from '@/components/challenge/ChallengeHeader';
 import { ChallengeTabs } from '@/components/challenge/ChallengeTabs';
 import { CheckInModal } from '@/components/challenge/CheckInModal';
-import { NotFound } from '@/pages/NotFound';
+import NotFound from '@/pages/NotFound';
 import { useState, useEffect } from 'react';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
