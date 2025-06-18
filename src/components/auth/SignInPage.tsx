@@ -1,10 +1,21 @@
 
 import { SignIn } from '@clerk/clerk-react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 
 export default function SignInPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { isSignedIn } = useAuth();
   const redirectUrl = searchParams.get('redirect_url') || '/dashboard';
+
+  // Redirect if already signed in
+  useEffect(() => {
+    if (isSignedIn) {
+      navigate('/dashboard');
+    }
+  }, [isSignedIn, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
@@ -14,7 +25,7 @@ export default function SignInPage() {
           <p className="text-muted-foreground">Sign in to continue your challenge journey</p>
         </div>
         <SignIn
-          afterSignInUrl={redirectUrl}
+          forceRedirectUrl={redirectUrl}
           signUpUrl="/signup"
           appearance={{
             elements: {

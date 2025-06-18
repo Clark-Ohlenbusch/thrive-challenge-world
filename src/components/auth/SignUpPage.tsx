@@ -1,10 +1,21 @@
 
 import { SignUp } from '@clerk/clerk-react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useAuth } from '@clerk/clerk-react';
 
 export default function SignUpPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { isSignedIn } = useAuth();
   const redirectUrl = searchParams.get('redirect_url') || '/dashboard';
+
+  // Redirect if already signed in
+  useEffect(() => {
+    if (isSignedIn) {
+      navigate('/dashboard');
+    }
+  }, [isSignedIn, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
@@ -14,7 +25,7 @@ export default function SignUpPage() {
           <p className="text-muted-foreground">Create your account and start your journey</p>
         </div>
         <SignUp
-          afterSignUpUrl={redirectUrl}
+          forceRedirectUrl={redirectUrl}
           signInUrl="/signin"
           appearance={{
             elements: {

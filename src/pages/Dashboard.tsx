@@ -1,125 +1,83 @@
 
-import { Layout } from '@/components/Layout';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { copy } from '@/lib/copy';
-import { Link } from 'react-router-dom';
-import { Plus, Calendar, Users, Target } from 'lucide-react';
+import { useAuth } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useUser } from '@clerk/clerk-react';
-
-interface ChallengeWithMembership {
-  id: string;
-  title: string;
-  category: string;
-  start_date: string;
-  end_date: string;
-  is_public: boolean;
-  slug: string;
-  memberships: Array<{ streak: number; last_checkin: string | null }>;
-  member_count: number;
-}
-
-interface PendingInvite {
-  id: string;
-  challenges: { title: string; category: string } | null;
-  inviter: { display_name: string } | null;
-}
+import { Layout } from '@/components/Layout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
+import { Plus, Flame, Calendar, Users } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function Dashboard() {
-  const { user } = useUser();
+  const { user } = useAuth();
 
-  const { data: challenges = [], isLoading } = useQuery({
-    queryKey: ['my-challenges', user?.id],
-    queryFn: async (): Promise<ChallengeWithMembership[]> => {
+  const { data: userChallenges, isLoading } = useQuery({
+    queryKey: ['user-challenges', user?.id],
+    queryFn: async () => {
       if (!user?.id) return [];
-
-      // First get challenges with memberships
-      const { data: challengeData, error: challengeError } = await supabase
-        .from('challenges')
-        .select(`
-          id,
-          title,
-          category,
-          start_date,
-          end_date,
-          is_public,
-          slug,
-          memberships!inner(streak, last_checkin)
-        `)
-        .eq('memberships.user_id', user.id);
-
-      if (challengeError) throw challengeError;
-
-      // Get member counts for each challenge
-      const challengeIds = challengeData?.map(c => c.id) || [];
-      if (challengeIds.length === 0) return [];
-
-      const memberCounts = await Promise.all(
-        challengeIds.map(async (challengeId) => {
-          const { count, error } = await supabase
-            .from('memberships')
-            .select('*', { count: 'exact', head: true })
-            .eq('challenge_id', challengeId);
-
-          if (error) throw error;
-          return { challenge_id: challengeId, count: count || 0 };
-        })
-      );
-
-      // Combine the data
-      return challengeData?.map(challenge => {
-        const memberCount = memberCounts.find(mc => mc.challenge_id === challenge.id)?.count || 0;
-        return {
-          ...challenge,
-          member_count: memberCount
-        };
-      }) || [];
-    },
-    enabled: !!user?.id
-  });
-
-  const { data: invites = [] } = useQuery({
-    queryKey: ['pending-invites', user?.primaryEmailAddress?.emailAddress],
-    queryFn: async (): Promise<PendingInvite[]> => {
-      if (!user?.primaryEmailAddress?.emailAddress) return [];
-
+      
       const { data, error } = await supabase
-        .from('invites')
+        .from('memberships')
         .select(`
-          id,
-          challenges(title, category),
-          inviter:users!inviter_id(display_name)
+          *,
+          challenges (
+            id,
+            title,
+            description,
+            slug,
+            start_date,
+            end_date,
+            category,
+            is_public
+          )
         `)
-        .eq('email', user.primaryEmailAddress.emailAddress)
-        .eq('accepted', false);
+        .eq('user_id', user.id);
 
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.primaryEmailAddress?.emailAddress
+    enabled: !!user?.id,
+  });
+
+  const { data: ownedChallenges } = useQuery({
+    queryKey: ['owned-challenges', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('challenges')
+        .select('*')
+        .eq('owner_id', user.id);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
   });
 
   if (isLoading) {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-32 bg-gray-200 rounded"></div>
-          </div>
+          <div className="text-center">Loading your dashboard...</div>
         </div>
       </Layout>
     );
   }
 
+  const hasChallenges = userChallenges && userChallenges.length > 0;
+  const hasOwnedChallenges = ownedChallenges && ownedChallenges.length > 0;
+
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8 pb-20 md:pb-8">
+      <div className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">My Dashboard</h1>
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.firstName || 'Champion'}!</h1>
+            <p className="text-muted-foreground">Track your progress and stay motivated</p>
+          </div>
           <Button asChild>
             <Link to="/create">
               <Plus className="h-4 w-4 mr-2" />
@@ -128,95 +86,101 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {/* Pending Invites */}
-        {invites.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Pending Invites</h2>
-            <div className="grid gap-4">
-              {invites.map((invite) => (
-                <Card key={invite.id}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>{invite.challenges?.title}</span>
-                      <div className="space-x-2">
-                        <Button size="sm">Accept</Button>
-                        <Button variant="outline" size="sm">Decline</Button>
-                      </div>
-                    </CardTitle>
-                    <CardDescription>
-                      Invited by {invite.inviter?.display_name} • {invite.challenges?.category}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
+        {!hasChallenges && !hasOwnedChallenges ? (
+          <Card className="text-center p-12">
+            <CardHeader>
+              <CardTitle>Ready to start your first challenge?</CardTitle>
+              <CardDescription>
+                Join existing challenges or create your own to begin your journey
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-center gap-4">
+                <Button asChild>
+                  <Link to="/explore">
+                    <Users className="h-4 w-4 mr-2" />
+                    Explore Challenges
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/create">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Challenge
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6">
+            {hasOwnedChallenges && (
+              <div>
+                <h2 className="text-2xl font-semibold mb-4">Your Challenges</h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {ownedChallenges?.map((challenge) => (
+                    <Card key={challenge.id} className="hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-lg">{challenge.title}</CardTitle>
+                          <Badge variant={challenge.is_public ? "default" : "secondary"}>
+                            {challenge.is_public ? "Public" : "Private"}
+                          </Badge>
+                        </div>
+                        <CardDescription>{challenge.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Calendar className="h-4 w-4 mr-1" />
+                            {format(new Date(challenge.start_date), 'MMM d')} - {format(new Date(challenge.end_date), 'MMM d')}
+                          </div>
+                        </div>
+                        <Button asChild variant="outline" className="w-full">
+                          <Link to={`/challenge/${challenge.slug}`}>
+                            Manage Challenge
+                          </Link>
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {hasChallenges && (
+              <div>
+                <h2 className="text-2xl font-semibold mb-4">Joined Challenges</h2>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {userChallenges?.map((membership) => (
+                    <Card key={membership.id} className="hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <CardTitle className="text-lg">{membership.challenges.title}</CardTitle>
+                        <CardDescription>{membership.challenges.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center">
+                            <Flame className="h-4 w-4 mr-1 text-orange-500" />
+                            <span className="font-semibold">{membership.streak} day streak</span>
+                          </div>
+                          <Badge variant="outline">{membership.challenges.category}</Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground mb-4">
+                          Last check-in: {membership.last_checkin ? format(new Date(membership.last_checkin), 'MMM d') : 'Never'}
+                        </div>
+                        <Button asChild className="w-full">
+                          <Link to={`/challenge/${membership.challenges.slug}`}>
+                            View Challenge
+                          </Link>
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
-
-        {/* My Challenges */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4">My Challenges</h2>
-          {challenges.length === 0 ? (
-            <Card>
-              <CardContent className="text-center py-12">
-                <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No challenges yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Start your journey by joining an existing challenge or creating your own!
-                </p>
-                <div className="space-x-4">
-                  <Button asChild>
-                    <Link to="/explore">Explore Challenges</Link>
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <Link to="/create">Create Challenge</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {challenges.map((challenge) => (
-                <Card key={challenge.id} className="hover:shadow-lg transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="line-clamp-2">{challenge.title}</CardTitle>
-                        <CardDescription>{challenge.category}</CardDescription>
-                      </div>
-                      <Badge variant={challenge.is_public ? "default" : "secondary"}>
-                        {challenge.is_public ? copy.challenges.public : copy.challenges.private}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {new Date(challenge.start_date).toLocaleDateString()} - {new Date(challenge.end_date).toLocaleDateString()}
-                      </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Users className="h-4 w-4 mr-2" />
-                        {challenge.member_count} members
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-sm font-medium">Streak: </span>
-                          <span className="text-lg font-bold text-primary">
-                            {challenge.memberships[0]?.streak || 0}
-                          </span>
-                        </div>
-                        <Button asChild size="sm">
-                          <Link to={`/challenge/${challenge.slug}`}>View</Link>
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </Layout>
   );

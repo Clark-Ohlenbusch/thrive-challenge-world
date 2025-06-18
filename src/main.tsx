@@ -4,11 +4,11 @@ import { ClerkProvider } from '@clerk/clerk-react'
 import App from './App.tsx'
 import './index.css'
 
-// Use the actual Clerk publishable key for this Supabase project
-const PUBLISHABLE_KEY = "pk_test_cG9zaXRpdmUtY2hpbXAtMzMuY2xlcmsuYWNjb3VudHMuZGV2JA"
+// Get the Clerk publishable key from environment variables
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 if (!PUBLISHABLE_KEY) {
-  throw new Error("Missing Clerk Publishable Key")
+  throw new Error("Missing Clerk Publishable Key - please set VITE_CLERK_PUBLISHABLE_KEY in your environment variables")
 }
 
 createRoot(document.getElementById("root")!).render(
