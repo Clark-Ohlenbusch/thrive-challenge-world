@@ -1,5 +1,5 @@
 
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth, useUser } from '@clerk/clerk-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -11,12 +11,13 @@ import { Plus, Flame, Calendar, Users } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { userId } = useAuth();
+  const { user } = useUser();
 
   const { data: userChallenges, isLoading } = useQuery({
-    queryKey: ['user-challenges', user?.id],
+    queryKey: ['user-challenges', userId],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!userId) return [];
       
       const { data, error } = await supabase
         .from('memberships')
@@ -33,28 +34,28 @@ export default function Dashboard() {
             is_public
           )
         `)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!userId,
   });
 
   const { data: ownedChallenges } = useQuery({
-    queryKey: ['owned-challenges', user?.id],
+    queryKey: ['owned-challenges', userId],
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!userId) return [];
       
       const { data, error } = await supabase
         .from('challenges')
         .select('*')
-        .eq('owner_id', user.id);
+        .eq('owner_id', userId);
 
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!userId,
   });
 
   if (isLoading) {
