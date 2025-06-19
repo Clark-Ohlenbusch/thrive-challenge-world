@@ -1,29 +1,22 @@
 
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-export function formatDate(date: Date | string): string {
-  return new Date(date).toLocaleDateString();
-}
-
-export function getDaysRemaining(endDate: Date | string): number {
-  const end = new Date(endDate);
-  const now = new Date();
-  const diffTime = end.getTime() - now.getTime();
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return twMerge(clsx(inputs))
 }
 
 export function generateSlug(title: string): string {
   return title
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
+    .replace(/[^a-z0-9 -]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .trim('-') // Remove leading/trailing hyphens
+    + '-' + Math.random().toString(36).substr(2, 9); // Add random suffix
 }
 
-export function generateInviteToken(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+// Generate a random text-based ID for database records
+export function generateId(): string {
+  return Math.random().toString(36).substr(2, 16) + Date.now().toString(36);
 }

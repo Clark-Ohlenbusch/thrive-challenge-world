@@ -9,15 +9,21 @@ import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import { Plus, Flame, Calendar, Users } from 'lucide-react';
 import { format } from 'date-fns';
+import { useUserSetup } from '@/hooks/useUserSetup';
 
 export default function Dashboard() {
   const { userId } = useAuth();
   const { user } = useUser();
+  
+  // Ensure user is set up in our database
+  useUserSetup();
 
   const { data: userChallenges, isLoading } = useQuery({
     queryKey: ['user-challenges', userId],
     queryFn: async () => {
       if (!userId) return [];
+      
+      console.log('Fetching user challenges for:', userId);
       
       const { data, error } = await supabase
         .from('memberships')
@@ -36,7 +42,12 @@ export default function Dashboard() {
         `)
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching user challenges:', error);
+        throw error;
+      }
+      
+      console.log('User challenges fetched:', data);
       return data || [];
     },
     enabled: !!userId,
@@ -47,12 +58,19 @@ export default function Dashboard() {
     queryFn: async () => {
       if (!userId) return [];
       
+      console.log('Fetching owned challenges for:', userId);
+      
       const { data, error } = await supabase
         .from('challenges')
         .select('*')
         .eq('owner_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching owned challenges:', error);
+        throw error;
+      }
+      
+      console.log('Owned challenges fetched:', data);
       return data || [];
     },
     enabled: !!userId,

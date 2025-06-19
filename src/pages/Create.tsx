@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { copy } from '@/lib/copy';
-import { generateSlug } from '@/lib/utils';
+import { generateSlug, generateId } from '@/lib/utils';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
@@ -15,6 +15,7 @@ import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@clerk/clerk-react';
+import { useUserSetup } from '@/hooks/useUserSetup';
 
 const categories = ['Fitness', 'Reading', 'Wellness', 'Creativity', 'Learning', 'Productivity'];
 
@@ -22,6 +23,10 @@ export default function Create() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useUser();
+  
+  // Ensure user is set up in our database
+  useUserSetup();
+
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     title: '',
@@ -40,11 +45,20 @@ export default function Create() {
     mutationFn: async (data: typeof formData) => {
       if (!user?.id) throw new Error('User not authenticated');
       
+      const challengeId = generateId();
       const slug = generateSlug(data.title);
+      
+      console.log('Creating challenge with data:', {
+        id: challengeId,
+        title: data.title,
+        slug,
+        owner_id: user.id
+      });
       
       const { data: challenge, error } = await supabase
         .from('challenges')
         .insert({
+          id: challengeId,
           title: data.title,
           slug,
           description: data.description,
@@ -60,18 +74,29 @@ export default function Create() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Challenge creation error:', error);
+        throw error;
+      }
+
+      console.log('Challenge created:', challenge);
 
       // Create owner membership
+      const membershipId = generateId();
       const { error: membershipError } = await supabase
         .from('memberships')
         .insert({
+          id: membershipId,
           challenge_id: challenge.id,
           user_id: user.id
         });
 
-      if (membershipError) throw membershipError;
+      if (membershipError) {
+        console.error('Membership creation error:', membershipError);
+        throw membershipError;
+      }
 
+      console.log('Membership created successfully');
       return challenge;
     },
     onSuccess: (challenge) => {
